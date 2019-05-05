@@ -27,7 +27,7 @@ The traditional model for a compiler is something like:
     > 
 # Today’s compiler
 ![Image result for vscode](https://raw.githubusercontent.com/be5invis/vscode-custom-css/master/screenshot.png)
-x
+
 # Why should you care about IDEs?
 - You have to write code in this language you’re making
 - It affects your language design — dependencies matter
@@ -79,12 +79,23 @@ The start of the story:
         - In games, might be a monster or player or something.
     - **Component:** some property of an entity
         - In games, might be “position” or “health” or a character etc
+- Entities in a compiler
+
 - Salsa’s model is similar to ECS, but different
+- 
     - Building block is a **query** — something you want to compute.
         - An example might be to parse and produce the AST of a file
     - Queries have **keys** — there can be any number, and they can have any type, but
         - keys are **values** — like integers — no internal mutation, etc
-    - 
+- Entities for a compiler
+  - Entities can be a **path**
+  
+```
+Entity = 
+  FileName
+| Entity "." Id
+```
+
 
 Support incremental re-execution
 
