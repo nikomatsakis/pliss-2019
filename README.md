@@ -1,7 +1,7 @@
 Talk for PLISS '2019
 
-[View slides.](https://nikomatsakis.github.io/pliss19/)
-
+[View slides.](https://nikomatsakis.github.io/pliss-2019/)
+b
 To browse locally, I do this:
 
 ```bash
