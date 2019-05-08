@@ -47,13 +47,14 @@ The traditional model for a compiler is something like:
 - Not a solved problem =)
     - I’m going to present you the current state of my exploration of this space
     - This is also gleaned from (limited) conversations with other folks
-
-The start of the story:
-
+- The start of the story:
     - rustc — too dang slow
     - RFC for incremental compilation
         - kind of a “make-like” system
         - aimed to be something we could incrementally add
+- Key requirement:
+  - be able to *prioritize* requests
+  - e.g., user typed `.`, what is the minimal work we can do to get that result?
 - “Salsa” — a system in rustc
     - High-level idea:
         - Separate out your **inputs** and **things derived from those inputs** 
@@ -79,7 +80,50 @@ The start of the story:
         - In games, might be a monster or player or something.
     - **Component:** some property of an entity
         - In games, might be “position” or “health” or a character etc
+- Salsa's model is a generalization of ECS
+    - Base concept is the **query** -- something you want to compute
+    - A query looks like `QueryName(K0..Kn)`
+    - A "component" in ECS would be `Component(E)` where the key `E` is the entity
+- Queries are divided into two main groups:
+    - *input queries* -- set explicitly by the user
+    - *derived queries* -- computed via a pure function
+- Basic model:
+    - loop:
+        - user sets inputs
+        - user "demands" derived queries as needed
+            - results are memoized and recomputed only if necessary
+- Making this concrete:
+
+```rust
+// create the salsa database:
+let mut db = Database::new();
+
+// Set the value for `my_input(key)` to 22
+salsa.set_my_input(key, 22);
+
+// Compute some derived value `my_derived(key)`
+salsa.my_derived(key);
+
+// Modify `my_input(key)` to 44
+salsa.set_my_input(key, 44);
+
+// Re-compute some derived value `my_derived(key)`
+salsa.my_derived(key);
+```
+
 - Entities in a compiler
+    - Entities can be a *path*
+    - Details aren't so important, but it's important that it is a tree
+    - Give an example of some Rust source
+- Why a tree?
+    - It remains stable as the user makes edits
+- We're going to "layer" information on these entities
+    - To start we have only the source for files
+    - We compute other things -- like AST, etc
+- Basic model is just a starting point
+    - in practice, lots to tweak -- how much do you memoize? etc
+    - can also demand things in parallel
+- 
 
 - Salsa’s model is similar to ECS, but different
 - 
@@ -87,18 +131,12 @@ The start of the story:
         - An example might be to parse and produce the AST of a file
     - Queries have **keys** — there can be any number, and they can have any type, but
         - keys are **values** — like integers — no internal mutation, etc
-- Entities for a compiler
-  - Entities can be a **path**
-  
-```
-Entity = 
-  FileName
-| Entity "." Id
-```
 
 
 Support incremental re-execution
 
+- The "cutoff" or "firewall" pattern and how to make use of it
+- Mapping
 - Error handling — the show must go on!
     - techniques for this
 - 
