@@ -526,20 +526,22 @@ db.ast("foo.rs")
 ```
 
 - Database contains:
-  - one map per query (e.g., `ast`)
-  - maps query key to:
-    - Memoized result
-    - Revision when last changed
-    - Vector of dependencies (`[input_text("foo.rs")]`)
+    - global revision counter
+    - one map per query (e.g., `ast`)
+    - maps query key to:
+         - Memoized result
+         - Vector of dependencies (`[input_text("foo.rs")]`)
+         - Revision when last changed
 
 ---
 
 # Recomputation (simplified)
 
 - When `db.ast("foo.rs")` is invoked:
-  - If any input dependency is out of date:
-    - Re-execute `ast` function, recording new result + dependencies
-    - Update the "last changed" revision
+    - If no entry yet, execute query and store result.
+    - Otherwise, if any input dependency is out of date:
+        - Re-execute `ast` function, recording new result + dependencies
+        - Update the "last changed" revision
 
 ---
 
@@ -556,7 +558,7 @@ db.signature(..)
 - `db.ast(..)`
 
 --
-- `db.input_tree(..)`
+- `db.input_text(..)` -- changed in R1
 
 ---
 
@@ -569,7 +571,7 @@ db.signature(..)
 - Current revision: R1
 - `db.signature(..)` -- changed in R1
 - `db.ast(..)` -- changed in R1
-- `db.input_tree(..)` -- changed in R1
+- `db.input_text(..)` -- changed in R1
 
 ???
 
@@ -588,7 +590,7 @@ db.set_input_text(..)
 - **Current revision: R2**
 - `db.signature(..)` -- changed in R1
 - `db.ast(..)` -- changed in R1
-- `db.input_tree(..)` -- **changed in R2**
+- `db.input_text(..)` -- **changed in R2**
 
 ???
 
@@ -607,7 +609,7 @@ db.signature(..)
 - Current revision: R2
 - `db.signature(..)` -- changed in R1
 - `db.ast(..)` -- changed in R1 &larr; **out of date**
-- `db.input_tree(..)` -- changed in R2
+- `db.input_text(..)` -- changed in R2
 
 ???
 
@@ -660,7 +662,7 @@ db.signature(..)
 - Current revision: R2
 - `db.signature(..)` -- changed in R1
 - `db.ast(..)` -- **changed in R1**
-- `db.input_tree(..)` -- changed in R2
+- `db.input_text(..)` -- changed in R2
 
 ???
 
@@ -698,7 +700,7 @@ B --> D ----+---> H
   - other queries "layer" structure on top
 - Example:
   - parser produces AST
-  - name resolution resolves names to symbols
+  - name resolution resolves names to entities
   - type check adds types
 
 ???
@@ -714,7 +716,7 @@ B --> D ----+---> H
 # Represent with maps
 
 - Give each node in the AST a numeric id `AstId`
-- Name resolution produces `(AstId -> Symbol)`
+- Name resolution produces `(AstId -> Entity)`
 - Type-check produces `(AstId -> Type)`
 
 ???
@@ -733,9 +735,19 @@ B --> D ----+---> H
 - nodes in the assigned a pre-index (`NodeId`)
 - this ID was used everywhere
 
+```rust
+fn foo() { // node 0
+  let x = 3; // node 1
+}
+
+fn bar() { // node 2
+  let y = 4; // node 3
+}
+```
+
 ???
 
-- rustc when I started had one giant AST
+- problem: if you edit foo, the nodes in bar would change 
 
 ---
 
@@ -746,17 +758,254 @@ Entity = FileName
        | Entity "." Index
 ```
 
+```rust
+fn foo() { // node `"foo.rs".0`
+  let x = 3; // node `"foo.rs".0.0`
+}
+
+fn bar() { // node `"foo.rs".1`
+  let y = 4; // node `"foo.rs".1.0`
+}
+```
+
 ???
 
+- editing foo does not affect the entity names in bar
+- but, reordering foo and bar would change a lot of ids
+
+---
+
+# Trees are your friends
+
+```
+Entity = FileName
+       | Entity "." Name [ Index ]
+```
+
+
+```rust
+fn foo() { // node `"foo.rs".foo[0]`
+  let x = 3; // node `"foo.rs".foo[0].expr[0]`
+}
+
+fn bar() { // node `"foo.rs".bar[0]`
+  let y = 4; // node `"foo.rs".bar[0].expr[0]`
+}
+```
+
+???
+
+- introduce *names*
+- but what is this integer? That's called the *disambiguator*
+- it is used for anonymous things, like expr, but also for conflicts
+
+---
+
+# Trees are your friends
+
+```
+Entity = FileName
+       | Entity "." Name [ Index ]
+```
+
+```rust
+fn foo() {} // node `"foo.rs".foo[0]`
+fn foo() {} // node `"foo.rs".foo[1]`
+```
+
+???
+
+Illegal in Rust, but we have to accept legal *and* illegal programs.
+
+---
+
+# Interning
+
+```rust
+struct Entity {
+  value: u32
+}
+
+enum EntityData {
+  Root(FileName),
+  Child(Entity), 
+}
+
+#[salsa::query_group]
+trait CompilerData {
+
+  #[salsa::intern]
+  fn intern_entity(&self, data: EntityData) -> Entity;
+
+}
+```
+
+???
+
+- Salsa has built-in support for *interning* these sorts of ids.
+- It will convert them into unique integers for you (as shown here)
+- And you can then lookup the underlying data
+- In languages with a GC, you could also just allocate them and store
+  them in some sort of global table.
+
+---
+
+# Tree-based entities also give context
+
+```rust
+enum EntityData {
+  Root(FileName),
+  Child(Entity), 
+}
+```
+
+???
+
+- Given an entity, you can extract the parent function or file it is
+  found within
+- Lookup the entity, walk upwards to find the root
+- Maybe useful to encode more such information in the entity as well,
+  such as the "type" of the entity
+
+---
+
+# Signature
+
+Example from earlier:
+
+- `db.signature(entity)`
+- `db.ast(file_name)`
+- `db.input_text(file_name)`
+
+How do we get the `file_name` from the `entity`?
+
+---
+
+# Tightening queries with projection
+
+- `db.signature(entity)` -- signature of **a function**
+- `db.ast(file_name)` -- ast of the **entire file**
+
+???
+
+- Big gap between information returned by `ast` query
+- And information needed by `signature`
+
+---
+
+# Tightening queries with projection
+
+- `db.signature(entity)`
+- `db.entity_ast(entity)` -- extract AST of a *single* entity
+- `db.ast(file_name)`
+
+???
+
+- Introducing an intermediate query tightens that gap
+- Now, even if AST changes, if the AST for a particular *entity* has not changed,
+  we can avoid recomputing the signature
+- Is this worth it? Depends. 
+    - One thing I've learned is that it is often a better trade-off to
+      re-execute more often.
+      
+---
+
+# The "outer spine"
+
+Question: How do we get "all the errors in the project"?
+
+???
+
+- This system is kind of like quantum theory, I've found:
+  - Quantum theory vs gravity, one works at small scale, one at large scale
+  - Not clear how to go from one to the other
+- Similarly, it's fairly easy to understand any individual query
+- I've found it's fairly easy to understand how the "first few phases" of compiler work
+- And kind of clear how "middle bits" work
+- But not so obvious ho
+
+---
+
+# Cancellation
 
 
 ---
 
-# Unit of incremental update
+# Error handling
 
--
+How not to handle an error in a compiler:
+
+```java
+throw new TypeError();
+```
+
+---
+
+# Error handling
+
+Another way not to handle errors:
+
+```
+if some kind of error {
+  return fake-but-otherwise-legal-value;
+}
+```
+
+---
+
+# Recovery from day one
+
+- Create a sentinel value that means "bad user code here"
+- Invariant:
+  - If you see this sentinel value, errors have been reported
+  - So you can feel free to suppress downstream errors
+- No such thing as a "fallible" compiler operation
 
 ???
 
-Computers are fast. You don't have to do super fine-grained re-use to
-get acceptable latency.
+- Much easier if you try to add this from the start
+- Not gonna lie, it can still be a pain
+    - diminishing returns at some point
+    - example: `Vec<Foo>` 
+
+---
+
+# Example: error type
+
+```rust
+enum Type {
+  Integer,
+  Character,
+  Error,
+}
+```
+
+---
+
+# Diminishing returns
+
+```
+struct MethodSignature {
+  argument_types: Vec<Type>,
+  return_type: Type,
+} 
+```
+
+???
+
+- Can you spot the hidden assumption?
+- We assume we know the arity
+- In some sorts of parse errors, it might be unclear how many 
+  arguments the user intended
+- Probably ok, though
+
+---
+
+# "Zooming out" or "zooming in"
+
+---
+
+# Tracking location information ("spans")
+
+- Various techniques:
+
