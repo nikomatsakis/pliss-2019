@@ -914,6 +914,17 @@ How do we get the `file_name` from the `entity`?
 
 Question: How do we get "all the errors in the project"?
 
+--
+
+- `db.all_errors()`
+- `db.filenames()` -- get a list of all filenames
+- `db.entities(filename)` -- for each filename, get all entities
+    - `db.parse(filename)` -- parse file to AST
+- `db.type_check(entity)` -- for each entity, do type-check
+    - `db.ast(entity)` -- get the AST for this entity
+        - `db.parse(filename)` -- parse file to AST (memoized)
+
+
 ???
 
 - This system is kind of like quantum theory, I've found:
@@ -922,12 +933,59 @@ Question: How do we get "all the errors in the project"?
 - Similarly, it's fairly easy to understand any individual query
 - I've found it's fairly easy to understand how the "first few phases" of compiler work
 - And kind of clear how "middle bits" work
-- But not so obvious ho
+- But not so obvious how to connect them
 
 ---
 
-# Cancellation
+# The "outer spine"
 
+What if the user edits a comment?
+
+- `db.all_errors()`
+- `db.filenames()` -- get a list of all filenames
+- `db.entities(filename)` -- for each filename, get all entities
+    - `db.parse(filename)` -- parse file to AST
+- `db.type_check(entity)` -- for each entity, do type-check
+    - `db.ast(entity)` -- get the AST for this entity
+        - `db.parse(filename)` -- parse file to AST (memoized)
+
+--
+
+.parse-bullet[![Arrow](content/images/arrow-left.svg)]
+
+Reparse, but that's it.
+
+---
+
+# The "outer spine"
+
+What if the user edits a fn body?
+
+- `db.all_errors()`
+- `db.filenames()` -- get a list of all filenames
+- `db.entities(filename)` -- for each filename, get all entities
+    - `db.parse(filename)` -- parse file to AST
+- `db.type_check(entity)` -- for each entity, do type-check
+    - `db.ast(entity)` -- get the AST for this entity
+        - `db.parse(filename)` -- parse file to AST (memoized)
+
+--
+
+.parse-bullet[![Arrow](content/images/arrow-left.svg)]
+
+Reparse the file.
+
+--
+
+.ast-bullet[![Arrow](content/images/arrow-left.svg)]
+
+Extract the AST.
+
+--
+
+.type-check-bullet[![Arrow](content/images/arrow-left.svg)]
+
+Type-check the function that changed.
 
 ---
 
@@ -1001,11 +1059,39 @@ struct MethodSignature {
 
 ---
 
-# "Zooming out" or "zooming in"
-
----
-
 # Tracking location information ("spans")
 
 - Various techniques:
+  - rustc appends all the input files to one big string
+  - stores 32-bit indices into that string
+  - compact, but hostile to incremental
+- One alternative:
+  - in the AST node, just stores its offset from previous sibling + length
+  - in other nodes, track the AST node id
+  - recompute the starting offset when needed
+
+---
+
+# "Zooming out" or "zooming in"
+
+- Eliding data is good
+    - especially when it can be recovered
+- On-demand system is a good fit for this
+
+???
+
+- Calculating the starting offset
+- Storing whitespace and comments in your AST
+
+---
+
+# Threading
+
+- 
+
+---
+
+# Cancellation
+
+???
 

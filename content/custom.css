@@ -341,3 +341,27 @@ mark, .mark {
     color: #FFFFFF;
     font-size: 35px;
 }
+
+.parse-bullet img {
+    position: absolute;
+    top: 288px;
+    left: 10px;
+    width: 50px;
+    transform: rotate(180deg);
+}
+
+.ast-bullet img {
+    position: absolute;
+    top: 362px;
+    left: 10px;
+    width: 50px;
+    transform: rotate(180deg);
+}
+
+.type-check-bullet img {
+    position: absolute;
+    top: 325px;
+    left: 10px;
+    width: 50px;
+    transform: rotate(180deg);
+}
