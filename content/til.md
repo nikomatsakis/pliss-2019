@@ -9,7 +9,7 @@ count: false
 
 ---
 
-# TIL: what TIL means 
+# TIL: what TIL means
 
 .center[.p60[![TIL stands for "today I learned"](content/images/screenshot-til.png)]]
 
@@ -158,7 +158,7 @@ fn dot_product(vec1: &[u32], vec2: &[u32]) -> u32 {
 - Moved to inherited mutability and "IMHTWAMA"
   - `T` -- owned
   - `&T` -- shared, immutable
-  - `&mut T` -- **unique**, mutable 
+  - `&mut T` -- **unique**, mutable
 
 --
 
@@ -186,6 +186,25 @@ fn dot_product(vec1: &[u32], vec2: &[u32]) -> u32 {
 --
 
 **Focused on finding the best answer, not on winning the argument.**
+
+---
+
+# The research spiral
+
+.center[.p80[![1-2-3 profit](content/images/1-2-3-profit.jpg)]]
+
+---
+
+# The research spiral
+
+The only thing that has ever worked for me:
+
+- Find an area that interests you
+    - maybe you don't even have a specific *problem* to solve yet
+- Reproduce or apply what exists
+- Somewhere along the way, an idea will strike you
+    - pursue it
+- Repeat ad ~~nauseum~~ infinitum
 
 ---
 
@@ -258,7 +277,7 @@ Feature gates are **infectious**
 
 ---
 
-# TIL: Account for versioning 
+# TIL: Account for versioning
 
 .center[.p80[![Scientifically proven](content/images/homer-proven.gif)]]
 
@@ -269,7 +288,7 @@ written is fine.
 
 ---
 
-# TIL: Account for versioning 
+# TIL: Account for versioning
 
 .center[.p80[![Things have changed](content/images/dylan-changed.gif)]]
 
@@ -366,7 +385,7 @@ impl Hash for u32 { ... }
 What about this:
 
 ```rust
-trait AsU32 { 
+trait AsU32 {
   fn as_u32(&self) - &u32;
 }
 
@@ -402,7 +421,7 @@ so which should we use?
 
 ---
 
-# Enter: time and versioning 
+# Enter: time and versioning
 
 ```rust
 // Crate 1, v1.0:
@@ -532,7 +551,7 @@ struct Context {
 }
 ```
 
-Here, we assume that `Context: Send`. 
+Here, we assume that `Context: Send`.
 
 --
 
@@ -613,6 +632,121 @@ fn foo() {
 .center[.p80[![racket errors](content/images/racket-errors-1.png)]]
 
 .center[.p60[![racket errors](content/images/racket-errors-2.png)]]
+
+---
+
+# TIL: Desugaring is one honking great idea
+
+.center[.p80[![spoonful of sugar](content/images/mary-poppins-spoonful-of-sugar.gif)]]
+
+---
+
+# Rust compiler
+
+- Rust compiler was initially anti-desugaring
+- Fear: error messages will suffer
+- Result: bugs, bugs, and more bugs
+
+---
+
+# Bugs, why?
+
+```rust
+let mut some_value = Some(String::new());
+match &some_value {
+  Some(r) => {
+    some_value = None; // invalidates r
+  }
+  None => ...,
+}
+```
+
+--
+
+```
+some_value   /--------------\
+             | discriminant |
+             | data         | <--+
+             \--------------/    |
+                                 |
+r            o-------------------+
+```
+
+---
+
+# MIR
+
+```rust
+match &some_value {
+  Some(r) => {
+    some_value = None; // invalidates r
+  }
+  None => ...,
+}
+```
+
+```c
+B0 {
+  tmp0 = &some_value
+  tmp1 = discriminant(*tmp0)
+  if tmp0 == 0 goto B1 else B2
+}
+
+B1 {
+  r = &(*tmp0).as<Option>.0;
+  ...
+}
+```
+
+---
+
+# Horn clauses ftw 
+
+- polonius: Re-encoding borrowck as **datalog**
+    - souffle: great prolog solver (C++) from Oracle
+    - datafrog: small Rust library for efficiently solving datalog
+    - differential dataflow: very powerful Rust package
+- chalk: Re-encoding trait solving as **(lambda) prolog**
+    - Lambda prolog
+    - MiniKanren
+
+???
+
+- datalog particularly powerful
+
+---
+
+# TIL: Desugaring is ... dangerous
+
+```rust
+let mut x = vec![...];
+match foo {
+    Some(r) if { drop(x); false } => ...,
+    Some(r) if x.is_empty() => ...,
+}
+```
+
+Should we accept this?
+
+---
+
+# TIL: Desugaring is ... dangerous
+
+```rust
+let mut x = vec![...];
+match foo {
+    None if { drop(x); false } => ...,
+    Some(r) if x.is_empty() => ...,
+}
+```
+
+What about *this*?
+
+---
+
+# Forward compatibility problem
+
+- Detect cycles between phases
 
 ---
 
@@ -977,7 +1111,4 @@ More than one way to do it.
 
 ---
 
-# TIL: You all are a great audience.
-
-Thanks for listening! <3
-
+# TIL: PLISS is great. ❤
