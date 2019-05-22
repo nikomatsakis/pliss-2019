@@ -646,6 +646,7 @@ fn foo() {
 # Recomputation (less simplified)
 
 - When `db.ast("foo.rs")` is invoked:
+  - If no entry yet, execute query and store result.
   - If any input dependency is out of date:
     - Re-execute `ast` function, recording new result + dependencies
     - **If the new result is different from old result:**
@@ -669,6 +670,46 @@ db.signature(..)
 - We still re-execute `ast`
 - But we do not re-execute `signature`
   - and anything dependent on `signature`
+
+---
+
+# Order matters
+
+```rust
+fn a(db: &impl Database) {
+  if db.b() {
+    db.c();
+  } else {
+    db.d();
+  }
+}
+```
+
+- Input dependencies of `a`:
+  - `b`, `c`, and `d`
+- If `b` were true in R1, we execute `c`
+- In R2, if `b` is false, `c` should never be executed
+
+---
+
+# Minimizing redundant checks
+
+- For each memoized value, track:
+  - "Last changed" revision
+  - "Last checked" revision
+- Update "last checked" revision when value is updated
+- Ensures that we only execute a value once per revision
+
+---
+
+# Garbage collection
+
+- Memoized results from previous revisions may no longer be relevant
+- But GC can be quite efficient:
+  - Execute "master query"
+  - Sweep any value whose "last checked" revision was not updated
+- Key idea:
+  - The master query doubles as the mark
 
 ---
 
@@ -713,11 +754,11 @@ B --> D ----+---> H
 
 ---
 
-# Represent with maps
+# Represent layers with maps
 
 - Give each node in the AST a numeric id `AstId`
-- Name resolution produces `(AstId -> Entity)`
-- Type-check produces `(AstId -> Type)`
+- Name resolution produces `Map<AstId, Entity>`
+- Type-check produces `Map<AstId, Type>`
 
 ???
 
@@ -1003,9 +1044,9 @@ throw new TypeError();
 
 Another way not to handle errors:
 
-```
-if some kind of error {
-  return fake-but-otherwise-legal-value;
+```rust
+if (some kind of error) {
+  return fake_but_otherwise_legal_value;
 }
 ```
 
@@ -1038,24 +1079,119 @@ enum Type {
 }
 ```
 
+--
+
+.line4[![Arrow](content/images/Arrow.png)]
+
 ---
 
 # Diminishing returns
 
-```
+```rust
 struct MethodSignature {
   argument_types: Vec<Type>,
   return_type: Type,
 } 
 ```
 
+- Hidden assumption here?
+
 ???
 
-- Can you spot the hidden assumption?
 - We assume we know the arity
 - In some sorts of parse errors, it might be unclear how many 
   arguments the user intended
 - Probably ok, though
+
+---
+
+# Handling cycles
+
+- Salsa can't handle cycles:
+    - currently panics, extending to permit controlled errors
+- If not careful, permitting cycles is an easy way to induce order dependence
+
+---
+
+# Example: inlining (take 1)
+
+```rust
+fn optimized_mir(func_id: FunctionId) {
+  let mut mir = db.unoptimized_mir(func_id);
+  for call_site in mir.call_sites() {
+    let callee_mir = db.optimized_mir(call_site.callee);
+    mir.inline_call(call_site, callee_mir);
+  }
+}
+```
+
+---
+
+# Example: inlining
+
+```rust
+fn foo() {
+  bar();
+}
+
+fn bar() {
+  ....
+}
+```
+
+---
+
+# Example: inlining (take 2)
+
+```rust
+fn optimized_mir(func_id: FunctionId) {
+  let mut mir = db.unoptimized_mir(func_id);
+  for call_site in mir.call_sites() {
+    if let Ok(callee_mir) = db.try_optimized_mir(call_site.callee) {
+      mir.inline_call(call_site, callee_mir);
+    }
+  }
+}
+```
+
+- Attempt and recover on cycle
+
+--
+
+.line4[![Arrow](content/images/Arrow.png)]
+
+---
+
+# Non-deterministic results
+
+```rust
+fn foo() {
+  bar();
+}
+
+fn bar() {
+  foo();
+}
+```
+
+- If I start from `foo`, then `bar` is inlined into `foo`
+- But if I start from `bar`, then `foo` is inlined into `bar`
+
+---
+
+# One better approach
+
+- Construct call graph, compute SCCs as one query
+- Process one SCC at a time
+
+---
+
+# Other cases involving cycles:
+
+- From Rust:
+  - Name resolution
+  - Trait resolution
+- Each has their own specific requirements
 
 ---
 
@@ -1072,7 +1208,26 @@ struct MethodSignature {
 
 ---
 
-# "Zooming out" or "zooming in"
+# What to put in your AST
+
+- Including whitespace, comments is useful for refactoring
+- Rest of compiler doesn't care
+
+---
+
+# Incremental re-parsing
+
+- Compiler receives "diffs" to apply to previous inputs
+- Useful to be able to keep old AST trees around
+- If they contain absolute spans or information, they must be rebuilt
+
+---
+
+# Example: Swift red and black trees
+
+---
+
+# Alternative: "Zooming out" or "zooming in"
 
 - Eliding data is good
     - especially when it can be recovered
@@ -1087,11 +1242,31 @@ struct MethodSignature {
 
 # Threading
 
-- 
+- Compiler is effectively a server
+- Spawn off threads to handle requests
+
+---
+
+# Salsa's threading model
+
+- Effectively a read-write lock:
+    - One master thread that applies edits
+    - Any number of "helper threads"
+        - while the helper threads are active, attempts to edit will block
 
 ---
 
 # Cancellation
 
-???
+- Threads can check periodically for pending edits
+- Easiest way to recover is to panic and unwind the thread
 
+---
+
+# Conclusions
+
+- Start with an on-demand style
+- Best practices in some areas still need to be codified
+  - how to represent ASTs? location information?
+  - how to handle cycles?
+  

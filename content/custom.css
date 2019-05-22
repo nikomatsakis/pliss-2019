@@ -158,13 +158,6 @@ mark, .mark {
   background-color: black;
 }
 
-.goldnordelish {
-  position: fixed;
-  bottom: 400px;
-  left: 400px;
-  background-color: yellow;
-}
-
 .caption {
   font-size: 50%;
 }
@@ -195,6 +188,10 @@ mark, .mark {
     bottom: 20px;
     font-weight: 400;
     font-size: 0.5em;
+}
+
+.avatar img {
+    width: 225px;
 }
 
 .p80 img {
@@ -313,11 +310,52 @@ mark, .mark {
     width: 50px;
 }
 
-.line7 img {
+.line6 img {
     position: absolute;
-    top: 300px;
+    top: 275px;
     left: 10px;
     width: 50px;
+}
+
+.line7 img {
+    position: absolute;
+    top: 305px;
+    left: 10px;
+    width: 50px;
+}
+
+.line8 img {
+    position: absolute;
+    top: 330px;
+    left: 10px;
+    width: 50px;
+}
+
+.line8b img {
+    position: absolute;
+    top: 320px;
+    left: 10px;
+    width: 50px;
+}
+
+.line9 img {
+    position: absolute;
+    top: 365px;
+    left: 10px;
+    width: 50px;
+}
+
+.line9b img {
+    position: absolute;
+    top: 350px;
+    left: 10px;
+    width: 50px;
+}
+
+.code-example {
+    position: absolute;
+    top: 110px;
+    left: 2em;
 }
 
 .col-right {
@@ -330,6 +368,12 @@ mark, .mark {
     position: absolute;
     bottom: 20px;
     right: 20px;
+}
+
+.TIL {
+  font-family: 'Yanone Kaffeesatz';
+  font-weight: normal;
+  font-size: 700px;
 }
 
 .group { }
@@ -364,4 +408,54 @@ mark, .mark {
     left: 10px;
     width: 50px;
     transform: rotate(180deg);
+}
+
+.rust-label {
+    font-size: 3rem;
+    color: white;
+    font-weight: 800;
+    position: fixed;
+    bottom: 200px;
+    left: 200px;
+    text-shadow: 4px 4px 2px rgba(150, 150, 150, 1);
+}
+
+.cpp-label {
+    font-size: 3rem;
+    color: white;
+    font-weight: 800;
+    position: fixed;
+    bottom: 160px;
+    left: 450px;
+    text-shadow: 4px 4px 2px rgba(150, 150, 150, 1);
+}
+
+.js-label {
+    font-size: 3rem;
+    color: white;
+    font-weight: 800;
+    position: fixed;
+    bottom: 250px;
+    left: 575px;
+    text-shadow: 4px 4px 2px rgba(150, 150, 150, 1);
+}
+
+.academia-label {
+    font-size: 3rem;
+    color: white;
+    font-weight: 800;
+    position: fixed;
+    bottom: 500px;
+    left: 500px;
+    text-shadow: 4px 4px 2px rgba(150, 150, 150, 1);
+}
+
+.new-label {
+    font-size: 3rem;
+    color: white;
+    font-weight: 800;
+    position: fixed;
+    bottom: 450px;
+    left: 100px;
+    text-shadow: 4px 4px 2px rgba(150, 150, 150, 1);
 }
