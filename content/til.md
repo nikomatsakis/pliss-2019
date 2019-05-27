@@ -125,7 +125,7 @@ fn dot_product(vec1: &[u32], vec: &[u32]) -> u32 {
 fn dot_product(vec1: &[u32], vec2: &[u32]) -> u32 {
   let mut counter = 0;
   vec1
-    .pari_ter()
+    .par_iter()
     .zip(vec2)
     .map(|(a, b)| {
        counter += 1; // <-- ERROR
@@ -274,6 +274,15 @@ Feature gates are **infectious**
 
 - Grace period to correct code that should not have been accepted
 - But: lint warnings are suppressed on dependencies
+
+---
+
+# Editions
+
+- Tag Rust code with a version
+    - Compiler accepts both Rust 2015 and Rust 2018 code
+    - Compiles both to a common internal representation
+- Similar to how C++ and Java compilers handle this situation
 
 ---
 
@@ -625,7 +634,7 @@ fn foo() {
 
 # Example
 
-.center[.p80[![Rust error tweet](content/images/tweet-rust-errors.png)]]
+.center[.p60[![Rust error tweet](content/images/tweet-rust-errors.png)]]
 
 ---
 
@@ -673,8 +682,6 @@ r            o-------------------+
 ```
 
 ---
-
-# MIR
 
 ```rust
 match &some_value {
@@ -744,9 +751,11 @@ What about *this*?
 
 ---
 
-# Forward compatibility problem
+# Another forward compatibility problem
 
-- Detect cycles between phases
+- Similar problems:
+  - Grammar ambiguities
+  - Cycle detection
 
 ---
 
